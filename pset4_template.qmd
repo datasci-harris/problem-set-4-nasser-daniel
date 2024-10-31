@@ -1,5 +1,5 @@
 ---
-title: "Nasser Alshaya"
+title: "PS4 Nasser & Daniel"
 format: 
   pdf:
     keep-tex: true
@@ -27,10 +27,10 @@ Please refer to the minilesson on code style
 ## Submission Steps (10 pts)
 1. This problem set is a paired problem set.
 2. Play paper, scissors, rock to determine who goes first. Call that person *Partner 1*.
-    - Partner 1 (name and cnet ID):
+    - Partner 1 (Nasser Alshaya and alshaya):
     - Partner 2 (name and cnet ID):
 3. Partner 1 will accept the `ps4` and then share the link it creates with their partner. You can only share it with one partner so you will not be able to change it after your partner has accepted. 
-4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: \*\*\_\_\*\* \*\*\_\_\*\*
+4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: \*\*\NA\*\* \*\*\_\_\*\*
 5. "I have uploaded the names of anyone else other than my partner and I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  (1 point)
 6. Late coins used this pset: \*\*\_\_\*\* Late coins left after submission: \*\*\_\_\*\*
 7. Knit your `ps4.qmd` to an PDF file to make `ps4.pdf`, 
@@ -43,14 +43,118 @@ Please refer to the minilesson on code style
 
 ## Download and explore the Provider of Services (POS) file (10 pts)
 
-1. 
+1. I pulled the columns related to: Provider Subtype, Provider Type, Number of Times of Changing Ownership, Effective Date of Most Recent Ownership Change, City Name, Facility Name, CMS Certification Number, Termination Status, Date the provider was Terminated, and Zip Code.
+
+```{python}
+import pandas as pd
+import os
+base_path = r"/Users/nasser.alshaya/Desktop/Fall-2024/PPHA-30538/Repos/problem-set-4-nasser-daniel/POS"
+path_data = os.path.join(base_path,
+ "pos2016.csv")
+df = pd.read_csv(path_data)
+df.columns
+```
+
 2. 
-    a.
-    b.
-3. 
+    a. There are `7245` hosptials reported in this data as short-term hospitals in `2016` Q4. The number is too large to be true, we would assume that most of the hospitals of this type are no longer in service.
+    b. Accordin to **[2016 CMS Statistics](https://www.cms.gov/Research-Statistics-Data-and-Systems/Statistics-Trends-and-Reports/CMS-Statistics-Reference-Booklet/Downloads/2016_CMS_Stats.pdf)**, the number of short-term hospitals as of December 2015 is `3436`, the number is way smaller than what we found in (a), even if the difference is only one year. 
+
+```{python}
+df_2016 = df[
+    (df["PRVDR_CTGRY_SBTYP_CD"] == 1) & 
+    (df["PRVDR_CTGRY_CD"] == 1)]
+len(df_2016)
+```
+
+3. The number of short-term hospitals per is plotted below, the number of hospitals increases every year, starting from 7245 in 2016 reaching to 7303 in 2019. 
+```{python}
+path_data = os.path.join(base_path,
+ "pos2017.csv")
+df_2017 = pd.read_csv(path_data)
+ 
+path_data = os.path.join(base_path,
+ "pos2018.csv")
+df_2018 = pd.read_csv(path_data, encoding_errors = "ignore")
+
+path_data = os.path.join(base_path,
+ "pos2019.csv")
+df_2019 = pd.read_csv(path_data, encoding_errors = "ignore")
+```
+
+
+```{python}
+df_2017 = df_2017[
+    (df_2017["PRVDR_CTGRY_SBTYP_CD"] == 1) & 
+    (df_2017["PRVDR_CTGRY_CD"] == 1)]
+
+df_2018 = df_2018[
+    (df_2018["PRVDR_CTGRY_SBTYP_CD"] == 1) & 
+    (df_2018["PRVDR_CTGRY_CD"] == 1)]
+
+df_2019 = df_2019[
+    (df_2019["PRVDR_CTGRY_SBTYP_CD"] == 1) & 
+    (df_2019["PRVDR_CTGRY_CD"] == 1)]
+
+# Add year column for each df for plot:
+df_2016["year"] = 2016
+df_2017["year"] = 2017
+df_2018["year"] = 2018
+df_2019["year"] = 2019
+df_pos = pd.concat([df_2016,df_2017,df_2018,df_2019],
+ ignore_index = True)
+```
+
+```{python}
+import altair as alt
+import warnings 
+warnings.filterwarnings('ignore')
+alt.renderers.enable("png")
+alt.data_transformers.disable_max_rows()
+bars = alt.Chart(df_pos).mark_bar().encode(
+    alt.X("year:N", title = "Year"),
+    alt.Y("count()",title = None, axis = None)
+).properties(
+    title = "Number of Short-term Hospitals per Year",
+    width = 350, height = 200)
+text = bars.mark_text(
+    align="center",
+    baseline="bottom",
+    dy=-5  
+).encode(
+    text=alt.Text("count():Q")  
+)
+
+bars + text
+```
+
 4. 
-    a.
-    b.
+    a. Upon aggregating the data based on the CMS certificate of each hospital, it seems that the numbers are identical to what previously found in (3)
+
+```{python}
+bars = alt.Chart(df_pos).transform_aggregate(
+    unique_hospitals="count(PRVDR_NUM)",groupby=["year"]
+    ).mark_bar().encode(
+        x=alt.X("year:N", title="Year"),
+    y=alt.Y("unique_hospitals:Q", axis = None, title = None)
+).properties(
+    title="Count of Unique Hospitals per Year",
+    width=350,
+    height=200
+)
+text = bars.mark_text(
+    align="center",
+    baseline="bottom",
+    dy=-5  
+).encode(
+    text=alt.Text("unique_hospitals:Q")  
+)
+
+bars + text
+```
+
+    b. Upon comparing the two plots, the number of hospitals per year is identical to the number of unique hospitals based on the CMS certificate, this tells us that the data is strucutured in a way that prevents duplicate entries of hospitals per year, and the records are well strucutured to represent the number of hospitals accurately.
+
+  
 
 ## Identify hospital closures in POS file (15 pts) (*)
 
