@@ -48,9 +48,8 @@ Please refer to the minilesson on code style
 ```{python}
 import pandas as pd
 import os
-base_path = r"/Users/nasser.alshaya/Desktop/Fall-2024/PPHA-30538/Repos/problem-set-4-nasser-daniel/POS"
-path_data = os.path.join(base_path,
- "pos2016.csv")
+base_path = r"/Users/nasser.alshaya/Desktop/problem-set-4-nasser-daniel/POS"
+path_data = os.path.join(base_path,"pos2016.csv")
 df = pd.read_csv(path_data)
 df.columns
 ```
@@ -168,9 +167,51 @@ bars + text
 ## Download Census zip code shapefile (10 pt) 
 
 1. 
-    a.
-    b. 
+    a. There are five files zipped in this folder as the following:
+
+    `dbf`: stores attribute information of spatial features, size 6.4 MB.
+    `shp`: shape file which has has feature geometrics, size 837.5 MB.
+    `prj`: describes the Coordinate Reference System (CRS), size 165 bytes.
+    `shx`: contains positional index in .shp, size 265 KB.
+    `xml`: metadata about the dataset, size 16 KB.
+
+    b.     `dbf`:size 6.4 MB.
+    `shp`: size 837.5 MB.
+    `prj`: size 165 bytes.
+    `shx`: size 265 KB.
+    `xml`: size 16 KB.
+    
 2. 
+```{python}
+import geopandas as gpd 
+```
+
+```{python}
+filepath = "/Users/nasser.alshaya/Desktop/problem-set-4-nasser-daniel/gz_2010_us_860_00_500k"
+
+path_shp = os.path.join(filepath,
+ "gz_2010_us_860_00_500k.shp")
+df_zip = gpd.read_file(path_shp)
+```
+
+```{python}
+texas_zip_codes = df_zip[df_zip["ZCTA5"].str.startswith(
+    ("70","71","72","73","74","75","76","77","78","79"))]
+```
+
+```{python}
+'''
+texas_zip_codes[texas_zip_codes["ZCTA5"].isin(df_2016["ZIP_CD"])]
+'''
+```
+
+```{python}
+import matplotlib.pyplot as plt
+texas_zip_codes.plot(facecolor="none", linewidth=0.2)
+plt.axis("off")
+plt.show()
+```
+
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
