@@ -48,17 +48,12 @@ Please refer to the minilesson on code style
 ```{python}
 import pandas as pd
 import os
-base_path = r"/Users/nasser.alshaya/Desktop/Fall-2024/PPHA-30538/Repos/problem-set-4-nasser-daniel/POS"
+base_path = r"C:/Users/danie/Documents/GitHub/problem-set-4-nasser-daniel/POS"
 path_data = os.path.join(base_path,
  "pos2016.csv")
 df = pd.read_csv(path_data)
 df.columns
 ```
-
-2. 
-    a. There are `7245` hosptials reported in this data as short-term hospitals in `2016` Q4. The number is too large to be true, we would assume that most of the hospitals of this type are no longer in service.
-    b. Accordin to **[2016 CMS Statistics](https://www.cms.gov/Research-Statistics-Data-and-Systems/Statistics-Trends-and-Reports/CMS-Statistics-Reference-Booklet/Downloads/2016_CMS_Stats.pdf)**, the number of short-term hospitals as of December 2015 is `3436`, the number is way smaller than what we found in (a), even if the difference is only one year. 
-
 ```{python}
 df_2016 = df[
     (df["PRVDR_CTGRY_SBTYP_CD"] == 1) & 
@@ -159,7 +154,62 @@ bars + text
 ## Identify hospital closures in POS file (15 pts) (*)
 
 1. 
+```{python}
+df_pos["PRVDR_NUM"] = df_pos["PRVDR_NUM"].astype(int)
+#PGM_TRMNTN_CD is the indicator variable for active/inactive status in a given year
+def active_inactive(active_year, inactive_year):
+    #to capture the hospitals that were active in the year prior, ex. 2016
+    starting_year = df_pos[(df_pos["year"] == active_year) & (df_pos["PGM_TRMNTN_CD"] == 0)]
+
+    #identify the codes of active hospitals in that year, ex. active hospitals in 2016
+    starting_year_codes = starting_year["PRVDR_NUM"].unique()
+
+    #identify hospitals in following year (ex. 2017) using codes of previously active hospitals
+    following_year_active = df_pos[(df_pos["year"] == inactive_year) & df_pos["PRVDR_NUM"].isin(starting_year_codes)]
+
+    #filtering to identify closures in following year (ex. hospitals that closed in 2017)
+    following_year_inactive = following_year_active[following_year_active["PGM_TRMNTN_CD"] != 0]
+    return following_year_inactive
+
+#active 2016, inactive 2017
+active_inactive_2016_2017 = active_inactive(2016, 2017)
+
+#active 2017, inactive 2018
+active_inactive_2017_2018 = active_inactive(2017, 2019)
+
+#active 2018, inactive 2018
+active_inactive_2018_2019 = active_inactive(2018, 2019)
+
+inactive_hospitals = pd.concat([active_inactive_2016_2017, active_inactive_2017_2018, active_inactive_2018_2019])
+
+#accessing the last available year for each of the inactive hospitals
+fac_name_year_list = []
+inactive_hospitals_unique = inactive_hospitals["PRVDR_NUM"].unique()
+for i in inactive_hospitals_unique:
+    hospital = inactive_hospitals[inactive_hospitals["PRVDR_NUM"] == i]
+    fac_name_year = []
+    fac_name_year.append(hospital["year"].max())
+    fac_name_year.append(hospital["FAC_NAME"].unique()[0])
+    fac_name_year_list.append(fac_name_year)
+    
+#turning the list into a dataframe, and then merging that with selected columns to answer the question.
+fac_name_year_df = pd.DataFrame(fac_name_year_list, columns = ["year", "FAC_NAME"])
+facility_name_zip = inactive_hospitals[["FAC_NAME", "ZIP_CD"]]
+facility_name_zip = facility_name_zip.merge(fac_name_year_df, how = "left", on = "FAC_NAME")
+
+facility_name_zip.shape[0]
+```
+
+There are 259 hospitals that meet this criteria.
+
 2. 
+```{python}
+facility_name_zip = facility_name_zip.sort_values(by = "FAC_NAME")
+facility_name_zip.head(10)[["FAC_NAME", "year"]]
+
+```
+
+
 3. 
     a.
     b.
