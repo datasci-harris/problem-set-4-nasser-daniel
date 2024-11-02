@@ -48,14 +48,8 @@ Please refer to the minilesson on code style
 ```{python}
 import pandas as pd
 import os
-<<<<<<< HEAD
-base_path = r"C:/Users/danie/Documents/GitHub/problem-set-4-nasser-daniel/POS"
-path_data = os.path.join(base_path,
- "pos2016.csv")
-=======
 base_path = r"/Users/nasser.alshaya/Desktop/problem-set-4-nasser-daniel/POS"
 path_data = os.path.join(base_path,"pos2016.csv")
->>>>>>> e18afaa8fa88b06ed138d7305aab9fab47b152b1
 df = pd.read_csv(path_data)
 df.columns
 ```
@@ -158,60 +152,47 @@ bars + text
 
 ## Identify hospital closures in POS file (15 pts) (*)
 
-1. 
+1. There are `69` hospitals that fit the definition of suspected closure. A sorted list based on their names for the first 10 hospitals is shown below.
 ```{python}
-df_pos["PRVDR_NUM"] = df_pos["PRVDR_NUM"].astype(int)
-#PGM_TRMNTN_CD is the indicator variable for active/inactive status in a given year
-def active_inactive(active_year, inactive_year):
-    #to capture the hospitals that were active in the year prior, ex. 2016
-    starting_year = df_pos[(df_pos["year"] == active_year) & (df_pos["PGM_TRMNTN_CD"] == 0)]
+suspected_hospitals = []
 
-    #identify the codes of active hospitals in that year, ex. active hospitals in 2016
-    starting_year_codes = starting_year["PRVDR_NUM"].unique()
+for year in range(2016, 2020):
+    for hospital in df_pos["FAC_NAME"].unique():
+        df_hospital_year = df_pos[(df_pos["FAC_NAME"] == hospital) & 
+        (df_pos["year"] == year)]
 
-    #identify hospitals in following year (ex. 2017) using codes of previously active hospitals
-    following_year_active = df_pos[(df_pos["year"] == inactive_year) & df_pos["PRVDR_NUM"].isin(starting_year_codes)]
-
-    #filtering to identify closures in following year (ex. hospitals that closed in 2017)
-    following_year_inactive = following_year_active[following_year_active["PGM_TRMNTN_CD"] != 0]
-    return following_year_inactive
-
-#active 2016, inactive 2017
-active_inactive_2016_2017 = active_inactive(2016, 2017)
-
-#active 2017, inactive 2018
-active_inactive_2017_2018 = active_inactive(2017, 2019)
-
-#active 2018, inactive 2018
-active_inactive_2018_2019 = active_inactive(2018, 2019)
-
-inactive_hospitals = pd.concat([active_inactive_2016_2017, active_inactive_2017_2018, active_inactive_2018_2019])
-
-#accessing the last available year for each of the inactive hospitals
-fac_name_year_list = []
-inactive_hospitals_unique = inactive_hospitals["PRVDR_NUM"].unique()
-for i in inactive_hospitals_unique:
-    hospital = inactive_hospitals[inactive_hospitals["PRVDR_NUM"] == i]
-    fac_name_year = []
-    fac_name_year.append(hospital["year"].max())
-    fac_name_year.append(hospital["FAC_NAME"].unique()[0])
-    fac_name_year_list.append(fac_name_year)
-    
-#turning the list into a dataframe, and then merging that with selected columns to answer the question.
-fac_name_year_df = pd.DataFrame(fac_name_year_list, columns = ["year", "FAC_NAME"])
-facility_name_zip = inactive_hospitals[["FAC_NAME", "ZIP_CD"]]
-facility_name_zip = facility_name_zip.merge(fac_name_year_df, how = "left", on = "FAC_NAME")
-
-facility_name_zip.shape[0]
+        for i in range(len(df_hospital_year) - 1):
+            if (df_hospital_year.iloc[i]["PGM_TRMNTN_CD"] == 0).any():
+                if (df_hospital_year.iloc[i+1]["PGM_TRMNTN_CD"] != 0 |
+                    pd.isna(df_hospital_year.iloc[i + 1]["PGM_TRMNTN_CD"])).any():
+                    suspected_hospitals.append(hospital)
+                    break
+```
+```{python}
+df_suspected = df_pos[df_pos["FAC_NAME"].isin(suspected_hospitals)]
 ```
 
-There are 259 hospitals that meet this criteria.
-
-2. 
 ```{python}
-facility_name_zip = facility_name_zip.sort_values(by = "FAC_NAME")
-facility_name_zip.head(10)[["FAC_NAME", "year"]]
+df_suspected = df_suspected.groupby("FAC_NAME")[["ZIP_CD","PGM_TRMNTN_CD",
+"PRVDR_NUM","year"]].apply(pd.DataFrame).reset_index()
+```
 
+```{python}
+df_suspected_grouped = df_suspected.groupby("FAC_NAME").agg(
+    ZIP_CD = ("ZIP_CD", "first"),
+    Closure_year = ("year", "first")
+).reset_index()
+```
+
+```{python}
+# Number of suspected hospitals based on zip code
+len(df_suspected_grouped)
+```
+
+2. Facility names of suspected closure hospitals sorted by name for the first 10 results:
+
+```{python}
+df_suspected_grouped.sort_values(by = "FAC_NAME").head(10)
 ```
 
 
@@ -250,20 +231,33 @@ path_shp = os.path.join(filepath,
 df_zip = gpd.read_file(path_shp)
 ```
 
+    # Correct approach:
 ```{python}
-texas_zip_codes = df_zip[df_zip["ZCTA5"].str.startswith(
-    ("70","71","72","73","74","75","76","77","78","79"))]
+# create a cleaned df for 2016
+cleaned_pos = df_pos[-df_pos["FAC_NAME"].isin(df_suspected["FAC_NAME"])]
+cleaned_pos_2016 = cleaned_pos[cleaned_pos["year"] == 2016]
 ```
 
 ```{python}
-'''
-texas_zip_codes[texas_zip_codes["ZCTA5"].isin(df_2016["ZIP_CD"])]
-'''
+# Number of Hospitals in Texas:
+texas_zips = texas_zip_codes["ZCTA5"].astype(int).tolist()
+cleaned_pos_2016["ZIP_CD"] = cleaned_pos_2016["ZIP_CD"].astype(int)
+len(cleaned_pos_2016[cleaned_pos_2016["ZIP_CD"].isin(texas_zips)])
 ```
 
 ```{python}
+# create a list of filtered zips to compare with Texas zips in shp file
+#hospital_zips_2016 = [str(int(zip_code)) for zip_code in cleaned_pos_2016["ZIP_CD"]]
+hospital_zips_2016 = str(cleaned_pos_2016["ZIP_CD"].to_list)
+filtered_zips_2016 = [zip_code for zip_code in hospital_zips if
+ zip_code.startswith(("70", "71", "72", "73", "74", "75",
+  "76", "77", "78", "79"))]
+# Boolean column to flag hospitals
+texas_zip_codes["Hospital_zips"] = texas_zip_codes["ZCTA5"].isin(
+    filtered_zips_2016).astype(int)
+
 import matplotlib.pyplot as plt
-texas_zip_codes.plot(facecolor="none", linewidth=0.2)
+texas_zip_codes.plot(column = "Hospital_zips", linewidth=0.2)
 plt.axis("off")
 plt.show()
 ```
