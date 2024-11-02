@@ -227,12 +227,6 @@ non_decreasing = (
 ```
 
 ```{python}
-suspected_zips = df_suspected_grouped["ZIP_CD"]
-
-zips_to_remove = [zip in ]
-```
-
-```{python}
 suspected_zips = set(df_pos["ZIP_CD"].unique()) - set(
     non_decreasing["ZIP_CD"].unique())
 
