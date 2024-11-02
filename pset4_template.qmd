@@ -195,11 +195,70 @@ len(df_suspected_grouped)
 df_suspected_grouped.sort_values(by = "FAC_NAME").head(10)
 ```
 
-
 3. 
-    a.
-    b.
+    a. There are `49` hospitals that fit this definition of potentially
+        being a merger/acquisition
+
+```{python}
+# Filter df_pos to include only active hospitals
+suspected_merger = df_pos[df_pos["PGM_TRMNTN_CD"] != 0]
+
+# Aggregate by year and zip codes
+Active_hospitals = df_pos[df_pos["PGM_TRMNTN_CD"] == 0].groupby(
+    ["year","ZIP_CD"])["PGM_TRMNTN_CD"].size().reset_index(name = "Active_count")
+
+# Merging both datasets to compare counts
+comparison_1 = suspected_merger.merge(
+    Active_hospitals,left_on = "ZIP_CD", right_on = "ZIP_CD",
+    suffixes =("_closure", "_active"))
+# Creating a column for next year counts for comparison 
+comparison_1["next_year"] = comparison_1["year_closure"].astype(int) + 1
+
+# Getting active counts for next year
+next_year_counts = Active_hospitals.rename(columns={"year": "next_year", "active_count": "next_year_active_count"})
+# Comparing for next year
+comparison_2 = comparison_1.merge(
+    next_year_counts, left_on=["ZIP_CD", "next_year"], 
+    right_on=["ZIP_CD", "next_year"], how="left")
+
+# Sorting to include only non decreasing zips
+non_decreasing = (
+    comparison_2[comparison_2["Active_count_y"] >= comparison_2["Active_count_x"]])
+```
+
+```{python}
+suspected_zips = df_suspected_grouped["ZIP_CD"]
+
+zips_to_remove = [zip in ]
+```
+
+```{python}
+suspected_zips = set(df_pos["ZIP_CD"].unique()) - set(
+    non_decreasing["ZIP_CD"].unique())
+
+# Compare suspected zips with df_suspected group from 2.1
+potential_merger = df_suspected_grouped[
+    df_suspected_grouped["ZIP_CD"].isin(suspected_zips)]
+len(potential_merger)
+```
+
+    b. Upon correcting we have 10480 hospitals left in total and 20 closed hospitals
+
+```{python}
+len(non_decreasing)
+```
+
+```{python}
+corrected_closure = df_suspected_grouped[-df_suspected_grouped[
+    "ZIP_CD"].isin(suspected_zips)]
+len(corrected_closure)
+```
+
     c.
+
+```{python}
+corrected_closure.sort_values(by = "FAC_NAME").head(10)
+```
 
 ## Download Census zip code shapefile (10 pt) 
 
