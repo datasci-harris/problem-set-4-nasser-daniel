@@ -296,8 +296,7 @@ cleaned_pos_2016 = cleaned_pos[cleaned_pos["year"] == 2016]
 # create a list of filtered zips to compare with Texas zips in shp file
 #hospital_zips_2016 = [str(int(zip_code)) for zip_code in cleaned_pos_2016["ZIP_CD"]]
 hospital_zips_2016 = cleaned_pos_2016["ZIP_CD"].astype(int).astype(str).tolist()
-filtered_zips_2016 = [zip_code for zip_code in hospital_zips_2016 if
- zip_code.startswith(("70", "71", "72", "73", "74", "75", "76", "77", "78", "79"))]
+filtered_zips_2016 = [zip_code for zip_code in hospital_zips_2016 if zip_code.startswith(("75", "76", "77", "78", "79"))]
 
 texas_zip_codes = df_zip["ZCTA5"].isin(filtered_zips_2016)
 texas_zip_codes = df_zip[texas_zip_codes]
@@ -343,15 +342,15 @@ The resulting dimensions of this dataframe are (33120, 0)
 
 ```{python}
 # just texas
-texas_zip_codes_centroid = texas_zip_codes["geometry"].centroid
-texas_zip_codes_centroid
+zips_texas_centroids = texas_zip_codes["geometry"].centroid
+zips_texas_centroids.shape
 ```
 
-there are 825 unique zipcodes texas
+there are 482 unique zipcodes texas
 
 ```{python}
 # texas and surrounding area
-texas_range = [i for i in range(70, 80)]
+texas_range = [i for i in range(75, 80)]
 missouri_range = [i for i in (range(716, 730))]
 oklahoma_range = [i for i in (range(73, 75))]
 new_mexico_range = [i for i in (range(870, 885))]
@@ -383,7 +382,10 @@ texas_and_surrounding_zip_codes = df_zip["ZCTA5"].isin(filtered_zips_2016)
 texas_and_surrounding_zip_codes = df_zip[texas_and_surrounding_zip_codes]
 texas_and_surrounding_zip_codes["Hospital_zips"] = texas_and_surrounding_zip_codes["ZCTA5"]
 
-texas_and_surrounding_zip_codes_centroids = texas_and_surrounding_zip_codes["geometry"].centroid
+zips_texas_borderstates_centroids = texas_and_surrounding_zip_codes["geometry"].centroid
+zips_texas_borderstates_centroids.plot()
+zips_texas_borderstates_centroids.shape
+
 ```
 
 There are 868 unique zip codes in the texas and surrounding states centroid variable. 
@@ -391,12 +393,42 @@ There are 868 unique zip codes in the texas and surrounding states centroid vari
 3. 
 
 ```{python}
+active_hospitals_2016 = df_pos[df_pos["PGM_TRMNTN_CD"] == 0]["ZIP_CD"].astype(int).unique()
+#take these zip codes and find them in the geo dataset
+min_one_hospital = df_geo["ZCTA5"].astype(int).isin(active_hospitals_2016)
+min_one_hospital = df_geo[min_one_hospital]
+min_one_hospital["ZIP_CD"] = min_one_hospital["ZCTA5"]
 
+zips_withhospital_centroids = gpd.sjoin(texas_and_surrounding_zip_codes, min_one_hospital, how = "inner").centroid
 
+zips_withhospital_centroids.plot()
 ```
+
 4. 
+
     a.
-    b.
+
+```{python}
+
+distance_gdf = gpd.GeoDataFrame()
+distance_gdf['nearest_hospital_distance'] = zips_withhospital_centroids.geometry.apply(
+    lambda x: zips_texas_borderstates_centroids.head().distance(x).min())
+
+distance_gdf
+```
+
+This shortened version took 16 seconds. The longer version could take multiple minutes.
+
+```{python}
+
+distance_gdf_full = gpd.GeoDataFrame()
+distance_gdf_full['nearest_hospital_distance'] = zips_withhospital_centroids.geometry.apply(
+    lambda x: zips_texas_borderstates_centroids.distance(x).min())
+
+distance_gdf_full
+```
+
+    b. I fooled myself. This was much quicker than I expected. It seems that every zipcode has at least one active hospital in it in 2016. Therefore the computer did not have many intensive calculations to complete, relative to the first attempt at this.
 5. 
     a.
     b.
