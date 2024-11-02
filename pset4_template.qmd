@@ -48,7 +48,7 @@ Please refer to the minilesson on code style
 ```{python}
 import pandas as pd
 import os
-base_path = r"/Users/nasser.alshaya/Desktop/problem-set-4-nasser-daniel/POS"
+base_path = r"c:/Users/danie/Documents/GitHub/problem-set-4-nasser-daniel"
 path_data = os.path.join(base_path,"pos2016.csv")
 df = pd.read_csv(path_data)
 df.columns
@@ -277,10 +277,11 @@ import geopandas as gpd
 ```
 
 ```{python}
-filepath = "/Users/nasser.alshaya/Desktop/problem-set-4-nasser-daniel/gz_2010_us_860_00_500k"
+filepath = "c:/Users/danie/Documents/GitHub/problem-set-4-nasser-daniel"
 
 path_shp = os.path.join(filepath,
  "gz_2010_us_860_00_500k.shp")
+
 df_zip = gpd.read_file(path_shp)
 ```
 
@@ -292,22 +293,15 @@ cleaned_pos_2016 = cleaned_pos[cleaned_pos["year"] == 2016]
 ```
 
 ```{python}
-# Number of Hospitals in Texas:
-texas_zips = texas_zip_codes["ZCTA5"].astype(int).tolist()
-cleaned_pos_2016["ZIP_CD"] = cleaned_pos_2016["ZIP_CD"].astype(int)
-len(cleaned_pos_2016[cleaned_pos_2016["ZIP_CD"].isin(texas_zips)])
-```
-
-```{python}
 # create a list of filtered zips to compare with Texas zips in shp file
 #hospital_zips_2016 = [str(int(zip_code)) for zip_code in cleaned_pos_2016["ZIP_CD"]]
-hospital_zips_2016 = str(cleaned_pos_2016["ZIP_CD"].to_list)
-filtered_zips_2016 = [zip_code for zip_code in hospital_zips if
- zip_code.startswith(("70", "71", "72", "73", "74", "75",
-  "76", "77", "78", "79"))]
-# Boolean column to flag hospitals
-texas_zip_codes["Hospital_zips"] = texas_zip_codes["ZCTA5"].isin(
-    filtered_zips_2016).astype(int)
+hospital_zips_2016 = cleaned_pos_2016["ZIP_CD"].astype(int).astype(str).tolist()
+filtered_zips_2016 = [zip_code for zip_code in hospital_zips_2016 if
+ zip_code.startswith(("70", "71", "72", "73", "74", "75", "76", "77", "78", "79"))]
+
+texas_zip_codes = df_zip["ZCTA5"].isin(filtered_zips_2016)
+texas_zip_codes = df_zip[texas_zip_codes]
+texas_zip_codes["Hospital_zips"] = texas_zip_codes["ZCTA5"]
 
 import matplotlib.pyplot as plt
 texas_zip_codes.plot(column = "Hospital_zips", linewidth=0.2)
@@ -316,11 +310,90 @@ plt.show()
 ```
 
 
+```{python}
+# Number of Hospitals in Texas:
+texas_zips = texas_zip_codes["ZCTA5"].astype(int).tolist()
+cleaned_pos_2016["ZIP_CD"] = cleaned_pos_2016["ZIP_CD"].astype(int)
+len(cleaned_pos_2016[cleaned_pos_2016["ZIP_CD"].isin(texas_zips)])
+```
+
+
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
 1. 
+
+```{python}
+filepath = "c:/Users/danie/Documents/GitHub/problem-set-4-nasser-daniel"
+
+# entire united states
+path_shp = os.path.join(filepath,
+ "gz_2010_us_860_00_500k.shp")
+df_geo = gpd.read_file(path_shp)
+
+```
+
+```{python}
+zips_all_centroids = df_geo.centroid
+zips_all_centroids.shape
+```
+
+The resulting dimensions of this dataframe are (33120, 0)
+
 2. 
+
+```{python}
+# just texas
+texas_zip_codes_centroid = texas_zip_codes["geometry"].centroid
+texas_zip_codes_centroid
+```
+
+there are 825 unique zipcodes texas
+
+```{python}
+# texas and surrounding area
+texas_range = [i for i in range(70, 80)]
+missouri_range = [i for i in (range(716, 730))]
+oklahoma_range = [i for i in (range(73, 75))]
+new_mexico_range = [i for i in (range(870, 885))]
+louisiana_range = [i for i in (range(700, 716))]
+
+texas_and_surrounding_states_zips = []
+texas_and_surrounding_states_zips.append(texas_range)
+texas_and_surrounding_states_zips.append(missouri_range)
+texas_and_surrounding_states_zips.append(oklahoma_range)
+texas_and_surrounding_states_zips.append(new_mexico_range)
+texas_and_surrounding_states_zips.append(louisiana_range)
+
+#unpacking the list of lists
+texas_and_surrounding_states_zips_list = pd.Series([zip for sublist in texas_and_surrounding_states_zips for zip in sublist]).astype(str)
+
+texas_and_surrounding_states_zips_tuple = []
+for i in range(len(texas_and_surrounding_states_zips_list)):
+    value = texas_and_surrounding_states_zips_list[i]
+    texas_and_surrounding_states_zips_tuple.append(value)
+
+texas_and_surrounding_states_zips_tuple = tuple(texas_and_surrounding_states_zips_tuple)
+
+#identifying texas and surrounding zipcodes from geodataframe
+hospital_zips_2016 = cleaned_pos_2016["ZIP_CD"].astype(int).astype(str).tolist()
+filtered_zips_2016 = [zip_code for zip_code in hospital_zips_2016 if
+ zip_code.startswith(texas_and_surrounding_states_zips_tuple)]
+
+texas_and_surrounding_zip_codes = df_zip["ZCTA5"].isin(filtered_zips_2016)
+texas_and_surrounding_zip_codes = df_zip[texas_and_surrounding_zip_codes]
+texas_and_surrounding_zip_codes["Hospital_zips"] = texas_and_surrounding_zip_codes["ZCTA5"]
+
+texas_and_surrounding_zip_codes_centroids = texas_and_surrounding_zip_codes["geometry"].centroid
+```
+
+There are 868 unique zip codes in the texas and surrounding states centroid variable. 
+
 3. 
+
+```{python}
+
+
+```
 4. 
     a.
     b.
