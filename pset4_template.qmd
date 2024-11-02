@@ -30,9 +30,9 @@ Please refer to the minilesson on code style
     - Partner 1 (Nasser Alshaya and alshaya):
     - Partner 2 (name and cnet ID):
 3. Partner 1 will accept the `ps4` and then share the link it creates with their partner. You can only share it with one partner so you will not be able to change it after your partner has accepted. 
-4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: \*\*\NA\*\* \*\*\_\_\*\*
+4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: `NA`, \*\*\_\_\*\*
 5. "I have uploaded the names of anyone else other than my partner and I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  (1 point)
-6. Late coins used this pset: \*\*\_\_\*\* Late coins left after submission: \*\*\_\_\*\*
+6. Late coins used this pset: `1` Late coins left after submission: `3`
 7. Knit your `ps4.qmd` to an PDF file to make `ps4.pdf`, 
     * The PDF should not be more than 25 pages. Use `head()` and re-size figures when appropriate. 
 8. (Partner 1): push  `ps4.qmd` and `ps4.pdf` to your github repo.
@@ -53,6 +53,10 @@ path_data = os.path.join(base_path,"pos2016.csv")
 df = pd.read_csv(path_data)
 df.columns
 ```
+
+2. 
+    a. There are `7245` hosptials reported in this data as short-term hospitals in `2016` Q4. The number is too large to be true, we would assume that most of the hospitals of this type are no longer in service.
+    b. Accordin to **[2016 CMS Statistics](https://www.cms.gov/Research-Statistics-Data-and-Systems/Statistics-Trends-and-Reports/CMS-Statistics-Reference-Booklet/Downloads/2016_CMS_Stats.pdf)**, the number of short-term hospitals as of December 2015 is `3436`, the number is way smaller than what we found in (a), even if the difference is only one year. 
 ```{python}
 df_2016 = df[
     (df["PRVDR_CTGRY_SBTYP_CD"] == 1) & 
@@ -149,109 +153,80 @@ bars + text
     b. Upon comparing the two plots, the number of hospitals per year is identical to the number of unique hospitals based on the CMS certificate, this tells us that the data is strucutured in a way that prevents duplicate entries of hospitals per year, and the records are well strucutured to represent the number of hospitals accurately.
 
   
-
 ## Identify hospital closures in POS file (15 pts) (*)
 
-1. There are `69` hospitals that fit the definition of suspected closure. A sorted list based on their names for the first 10 hospitals is shown below.
+1. There are `3403` hospitals that fit the definition of suspected closure.
+
 ```{python}
 suspected_hospitals = []
 
-for year in range(2016, 2020):
-    for hospital in df_pos["FAC_NAME"].unique():
-        df_hospital_year = df_pos[(df_pos["FAC_NAME"] == hospital) & 
+for hospital in df_pos["PRVDR_NUM"].unique():
+    for year in range(2016, 2020):
+        df_hospital_year = df_pos[(df_pos["PRVDR_NUM"] == hospital) & 
         (df_pos["year"] == year)]
-
-        for i in range(len(df_hospital_year) - 1):
-            if (df_hospital_year.iloc[i]["PGM_TRMNTN_CD"] == 0).any():
-                if (df_hospital_year.iloc[i+1]["PGM_TRMNTN_CD"] != 0 |
-                    pd.isna(df_hospital_year.iloc[i + 1]["PGM_TRMNTN_CD"])).any():
-                    suspected_hospitals.append(hospital)
-                    break
-```
-```{python}
-df_suspected = df_pos[df_pos["FAC_NAME"].isin(suspected_hospitals)]
+        if (df_hospital_year["PGM_TRMNTN_CD"].values != 0 &
+            pd.isna(df_hospital_year["PGM_TRMNTN_CD"])).any():
+            suspected_hospitals.append({
+            "FAC_NAME": df_hospital_year["FAC_NAME"].iloc[0],
+            "ZIP_CD": df_hospital_year["ZIP_CD"].iloc[0],
+            "closure_year": year
+        })
+            break
 ```
 
-```{python}
-df_suspected = df_suspected.groupby("FAC_NAME")[["ZIP_CD","PGM_TRMNTN_CD",
-"PRVDR_NUM","year"]].apply(pd.DataFrame).reset_index()
-```
 
 ```{python}
-df_suspected_grouped = df_suspected.groupby("FAC_NAME").agg(
-    ZIP_CD = ("ZIP_CD", "first"),
-    Closure_year = ("year", "first")
-).reset_index()
-```
-
-```{python}
-# Number of suspected hospitals based on zip code
-len(df_suspected_grouped)
+df_closures = pd.DataFrame(suspected_hospitals)
+len(df_closures["ZIP_CD"].unique())
 ```
 
 2. Facility names of suspected closure hospitals sorted by name for the first 10 results:
 
 ```{python}
-df_suspected_grouped.sort_values(by = "FAC_NAME").head(10)
+
+df_closures.sort_values(by = "FAC_NAME",ascending=True)[["FAC_NAME", "closure_year"]].head(10)
 ```
 
 3. 
-    a. There are `49` hospitals that fit this definition of potentially
-        being a merger/acquisition
+    a. There are `388` hospitals that fit this definition of potentially being a merger/acquisition.
 
 ```{python}
-# Filter df_pos to include only active hospitals
-suspected_merger = df_pos[df_pos["PGM_TRMNTN_CD"] != 0]
-
-# Aggregate by year and zip codes
 Active_hospitals = df_pos[df_pos["PGM_TRMNTN_CD"] == 0].groupby(
     ["year","ZIP_CD"])["PGM_TRMNTN_CD"].size().reset_index(name = "Active_count")
 
-# Merging both datasets to compare counts
-comparison_1 = suspected_merger.merge(
-    Active_hospitals,left_on = "ZIP_CD", right_on = "ZIP_CD",
-    suffixes =("_closure", "_active"))
-# Creating a column for next year counts for comparison 
-comparison_1["next_year"] = comparison_1["year_closure"].astype(int) + 1
+Active_grouped = Active_hospitals.groupby(["ZIP_CD", "year"]).size().reset_index(name = "count")
 
-# Getting active counts for next year
-next_year_counts = Active_hospitals.rename(columns={"year": "next_year", "active_count": "next_year_active_count"})
-# Comparing for next year
-comparison_2 = comparison_1.merge(
-    next_year_counts, left_on=["ZIP_CD", "next_year"], 
-    right_on=["ZIP_CD", "next_year"], how="left")
+zips_grouped = df_pos.groupby(["ZIP_CD", "year"])["PGM_TRMNTN_CD"].size().reset_index(name = "count")
 
-# Sorting to include only non decreasing zips
-non_decreasing = (
-    comparison_2[comparison_2["Active_count_y"] >= comparison_2["Active_count_x"]])
+Active_merged = Active_grouped.merge(zips_grouped, on = ["ZIP_CD","year"] , how = "inner")
+
+# Difference between active zipcodes and all zipcodes
+
+Active_merged = Active_merged.sort_values(["ZIP_CD", "year"])
+
+Active_merged["prev_year_count_y"] = Active_merged.groupby("ZIP_CD")["count_y"].shift(1)
+
+Active_merged["decreased"] = Active_merged["count_x"] < Active_merged["prev_year_count_y"]
+
+decreased_zips = Active_merged[Active_merged["decreased"]]
 ```
 
 ```{python}
-suspected_zips = set(df_pos["ZIP_CD"].unique()) - set(
-    non_decreasing["ZIP_CD"].unique())
 
-# Compare suspected zips with df_suspected group from 2.1
-potential_merger = df_suspected_grouped[
-    df_suspected_grouped["ZIP_CD"].isin(suspected_zips)]
-len(potential_merger)
+df_closures = df_closures[-df_closures["ZIP_CD"].isin(decreased_zips["ZIP_CD"])]
 ```
 
-    b. Upon correcting we have 10480 hospitals left in total and 20 closed hospitals
 
 ```{python}
-len(non_decreasing)
+len(df_closures["ZIP_CD"].unique())
 ```
 
-```{python}
-corrected_closure = df_suspected_grouped[-df_suspected_grouped[
-    "ZIP_CD"].isin(suspected_zips)]
-len(corrected_closure)
-```
+    b. Upon correcting we have 2697 hospitals left
 
-    c.
+    c. Sorted list shown below:
 
 ```{python}
-corrected_closure.sort_values(by = "FAC_NAME").head(10)
+df_closures.sort_values(by = "FAC_NAME",ascending=True)[["FAC_NAME", "closure_year"]].head(10)
 ```
 
 ## Download Census zip code shapefile (10 pt) 
@@ -271,7 +246,7 @@ corrected_closure.sort_values(by = "FAC_NAME").head(10)
     `shx`: size 265 KB.
     `xml`: size 16 KB.
     
-2. 
+2. There are 495 active hospitals in Texas for the year 2016.
 ```{python}
 import geopandas as gpd 
 ```
@@ -285,35 +260,40 @@ path_shp = os.path.join(filepath,
 df_zip = gpd.read_file(path_shp)
 ```
 
-    # Correct approach:
 ```{python}
-# create a cleaned df for 2016
-cleaned_pos = df_pos[-df_pos["FAC_NAME"].isin(df_suspected["FAC_NAME"])]
-cleaned_pos_2016 = cleaned_pos[cleaned_pos["year"] == 2016]
+texas_zip_codes = df_zip[df_zip["ZCTA5"].str.startswith(
+    ("75","76","77","78","79"))]
+```
+
+```{python}
+# 2016 Hoispitals:
+df_hospitals_2016 = df_2016
+df_hospitals_2016 = df_pos[-df_pos["ZIP_CD"].isin(df_closures)]
+```
+
+```{python}
+# Number of Hospitals in Texas:
+texas_zips = texas_zip_codes["ZCTA5"].astype(int).tolist()
+df_hospitals_2016["ZIP_CD"] = df_hospitals_2016["ZIP_CD"].astype(int)
+grouped_hospitals_zip = df_hospitals_2016[df_hospitals_2016["ZIP_CD"].isin(texas_zips)]
+len(grouped_hospitals_zip.groupby("ZIP_CD"))
 ```
 
 ```{python}
 # create a list of filtered zips to compare with Texas zips in shp file
-#hospital_zips_2016 = [str(int(zip_code)) for zip_code in cleaned_pos_2016["ZIP_CD"]]
-hospital_zips_2016 = cleaned_pos_2016["ZIP_CD"].astype(int).astype(str).tolist()
-filtered_zips_2016 = [zip_code for zip_code in hospital_zips_2016 if zip_code.startswith(("75", "76", "77", "78", "79"))]
 
-texas_zip_codes = df_zip["ZCTA5"].isin(filtered_zips_2016)
-texas_zip_codes = df_zip[texas_zip_codes]
-texas_zip_codes["Hospital_zips"] = texas_zip_codes["ZCTA5"]
+hospital_zips_2016 = df_hospitals_2016["ZIP_CD"].astype("str").to_list()
+
+filtered_zips_2016 = [zip_code for zip_code in hospital_zips_2016 if zip_code.startswith(("75",
+  "76", "77", "78", "79"))]
+# Boolean column to flag hospitals
+texas_zip_codes["Hospital_zips"] = texas_zip_codes["ZCTA5"].isin(
+    filtered_zips_2016).astype(int)
 
 import matplotlib.pyplot as plt
 texas_zip_codes.plot(column = "Hospital_zips", linewidth=0.2)
 plt.axis("off")
 plt.show()
-```
-
-
-```{python}
-# Number of Hospitals in Texas:
-texas_zips = texas_zip_codes["ZCTA5"].astype(int).tolist()
-cleaned_pos_2016["ZIP_CD"] = cleaned_pos_2016["ZIP_CD"].astype(int)
-len(cleaned_pos_2016[cleaned_pos_2016["ZIP_CD"].isin(texas_zips)])
 ```
 
 
@@ -436,9 +416,74 @@ distance_gdf_full
     
 ## Effects of closures on access in Texas (15 pts)
 
-1. 
-2. 
-3. 
+1. The first 10 rows of the table for closures count per zip code is shown below.
+
+```{python}
+df_closures_texas = df_closures[df_closures["ZIP_CD"].isin(texas_zips)]
+texas_closures = (
+    df_closures_texas.groupby("ZIP_CD").size().reset_index(name = "closures_count"))
+
+texas_closures.head()
+```
+
+2. There are 253 zipcodes that were directly affected by a closure in 2016 to 2019.
+
+```{python}
+len(texas_closures)
+```
+
+```{python}
+texas_zip_codes.plot(column = "Hospital_zips", linewidth=0.2)
+plt.axis("off")
+plt.show()
+```
+
+```{python}
+direct_zips = texas_closures["ZIP_CD"].astype(int).astype(str).to_list()
+texas_direct = texas_zip_codes[texas_zip_codes["ZCTA5"].isin(direct_zips)]
+```
+
+```{python}
+texas_zip_codes["direct"] = texas_zip_codes["ZCTA5"].isin(direct_zips)
+texas_zip_codes.plot(column = "direct", linewidth=0.2)
+plt.axis("off")
+plt.show()
+```
+
+3. There 970 indirectly affected zip codes are there in Texas.
+
+```{python}
+# meters to miles 1 mi = 1.6093 Km:
+texas_direct["buffer_10mi"]= texas_direct.buffer(16093)
+spatial_joint = texas_zip_codes.sjoin(texas_direct, how = "left")
+
+# indirectly affected zips:
+filtered_spatial_joint = spatial_joint[
+    spatial_joint["buffer_10mi"].notnull()]
+
+direct_zips_set = set(direct_zips) 
+indirect_zips_set = set(
+    filtered_spatial_joint["ZCTA5_left"].values) - direct_zips_set
+
+len(indirect_zips_set)
+```
+
 4. 
 
+```{python}
+spatial_joint["affect_type"] = ["directly_affected" if zip_code in
+ direct_zips_set else "indirectly_affected" if zip_code in 
+ indirect_zips_set else "not_affected" for zip_code in spatial_joint
+ ["ZCTA5_left"]]
+```
+
+```{python}
+spatial_joint.plot(column = "affect_type", linewidth=0.2, legend = True,legend_kwds={"loc": "lower left"})
+plt.axis("off")
+
+plt.show()
+```
+
 ## Reflecting on the exercise (10 pts) 
+
+1. I believe having a unique identifier for each hospital is the best way to keep track all the changes over time. It would be easier than relying on a zipcode, facility name, or a CMS certificate for the ease of analysis and tracking changes over time.
